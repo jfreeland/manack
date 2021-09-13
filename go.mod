@@ -1,4 +1,4 @@
-module github.com/jfreeland/test/gorawtcpsyn
+module github.com/jfreeland/manack
 
 go 1.16
 
