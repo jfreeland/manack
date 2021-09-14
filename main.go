@@ -8,10 +8,14 @@ package main
 // that does this already, but i couldn't find it.
 
 import (
+	"bufio"
+	"bytes"
 	"flag"
 	"log"
 	"math/rand"
 	"net"
+	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -223,11 +227,13 @@ func config(device, host string, dport int) Config {
 
 func main() {
 	var (
-		device, host string
-		dport, delay int
+		device, host, httpHost, path string
+		dport, delay                 int
 	)
 	flag.StringVar(&device, "i", "", "interface to use")
 	flag.StringVar(&host, "h", "", "ip address or host to target")
+	flag.StringVar(&httpHost, "host", "", "http host header to request")
+	flag.StringVar(&path, "path", "/", "http path to request")
 	flag.IntVar(&dport, "p", 0, "tcp port to target")
 	flag.IntVar(&delay, "d", 0, "delay before sending ACK")
 	flag.Parse()
@@ -295,7 +301,20 @@ func main() {
 						// TODO: send an HTTP request as our payload.  long
 						// term, upgrade to TLS if we ask for it, try to issue
 						// HTTPS request?
-						if err := sendTCPPacket(handle, config, seqNum, ackNum, false, true, nil); err != nil {
+						reqBuf := new(bytes.Buffer)
+						if httpHost != "" {
+							req := http.Request{
+								URL:    &url.URL{Host: httpHost + path},
+								Header: make(http.Header),
+								Host:   httpHost,
+							}
+							reqWriter := bufio.NewWriter(reqBuf)
+							if err = req.Write(reqWriter); err != nil {
+								log.Fatal(err)
+							}
+							reqWriter.Flush()
+						}
+						if err := sendTCPPacket(handle, config, seqNum, ackNum, false, true, reqBuf.Bytes()); err != nil {
 							log.Fatal(err)
 						}
 						break
